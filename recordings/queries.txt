@@ -132,7 +132,30 @@ AVAILABILITY
 POST
 https://www.opentable.com/dapi/fe/gql?optype=query&opname=RestaurantsAvailability
 
-{"operationName":"RestaurantsAvailability","variables":{"onlyPop":false,"forwardDays":0,"requireTimes":false,"requireTypes":[],"restaurantIds":[118267],"date":"2024-05-28","time":"18:30","partySize":2,"databaseRegion":"NA","restaurantAvailabilityTokens":[null],"slotDiscovery":["on"],"loyaltyRedemptionTiers":[],"attributionToken":"x=2024-04-10T20%3A19%3A06&c=1&pt1=1&pt2=1&er=118267"},"extensions":{"persistedQuery":{"version":1,"sha256Hash":"2aee2372b4496d091f057a6004c6d79fbf01ffdc8faf13d3887703a1ba45a3b8"}}}
+{
+    "operationName": "RestaurantsAvailability", 
+    "variables": {
+        "onlyPop":false,
+        "forwardDays":0,
+        "requireTimes":false,
+        "requireTypes":[],
+        "restaurantIds":[118267],
+        "date":"2024-05-28",
+        "time":"18:30",
+        "partySize":2,
+        "databaseRegion":"NA",
+        "restaurantAvailabilityTokens":[null],
+        "slotDiscovery":["on"],
+        "loyaltyRedemptionTiers":[],
+        "attributionToken":"x=2024-04-10T20%3A19%3A06&c=1&pt1=1&pt2=1&er=118267"
+    },
+    "extensions": {
+        "persistedQuery": {
+            "version":1,
+            "sha256Hash":"2aee2372b4496d091f057a6004c6d79fbf01ffdc8faf13d3887703a1ba45a3b8"
+        }
+    }
+}
 
 {
     "data": {
@@ -280,7 +303,28 @@ EXPERIENCE AVAILABILITY
 POST
 https://www.opentable.com/dapi/fe/gql?optype=query&opname=ExperienceAvailability
 
-{"operationName":"ExperienceAvailability","variables":{"includeDiningAreas":true,"transformOutdoorToDefault":false,"restaurantIds":[118267],"partySize":2,"dateTime":"2024-05-28T18:30","experienceId":285395,"type":"Experience","returnTimeSlots":true,"backwardMinutes":45,"forwardMinutes":150,"forwardDays":30},"extensions":{"persistedQuery":{"version":1,"sha256Hash":"9a7cd200454543087f0c500e9ac7fd04a811a107c0f8e1eca7f2714cbfeaf4e0"}}}
+{
+    "operationName":"ExperienceAvailability",
+    "variables":{
+        "includeDiningAreas":true,
+        "transformOutdoorToDefault":false,
+        "restaurantIds":[118267],
+        "partySize":2,
+        "dateTime":"2024-05-28T18:30",
+        "experienceId":285395,
+        "type":"Experience",
+        "returnTimeSlots":true,
+        "backwardMinutes":45,
+        "forwardMinutes":150,
+        "forwardDays":30},
+        "extensions":{
+            "persistedQuery":{
+                "version":1,
+                "sha256Hash":"9a7cd200454543087f0c500e9ac7fd04a811a107c0f8e1eca7f2714cbfeaf4e0"
+            }
+        }
+    }
+}
 
 {
     "data": {
