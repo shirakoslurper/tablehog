@@ -1,6 +1,7 @@
 use indoc::formatdoc;
 use reqwest::{Client, Response};
 use scraper::{Html, Selector};
+use time::PrimitiveDateTime;
 
 // Let's work with a string restaurant ID
 // And fetch availability
@@ -182,4 +183,51 @@ pub async fn fetch_experience_availability(
         .map_err(|e| e.into())
 }
 
-// pub async fn 
+pub async fn lock_book_details_experience_slot(
+    client: &Client,
+    restaurant_id: u32,
+    seating_option: &str,
+    reservation_date_time: &PrimitiveDateTime,
+    party_size: u32,
+    slot_hash: u32,
+    experience_id: u32,
+    experience_version: u32,
+    dining_area_id: u32
+) {
+
+    let reservation_date_time_str = "";
+
+    let body = formatdoc!(
+        r#"{{
+            "operationName":"BookDetailsExperienceSlotLock",
+            "variables":{{
+                "experienceSlotLockInput":{{
+                    "restaurantId":{restaurant_id},
+                    "seatingOption":"{seating_option}",
+                    "reservationDateTime":"{reservation_date_time_str}",
+                    "partySize":{party_size},
+                    "databaseRegion":"NA",
+                    "slotHash":{slot_hash},
+                    "experienceId":{experience_id},
+                    "experienceVersion":{experience_version},
+                    "diningAreaId":{dining_area_id}
+                }}
+            }},
+            "extensions":{{
+                "persistedQuery":{{
+                    "version":1,
+                    "sha256Hash":"9d4778c80c7a86c581760ee03ced083866021c4618b1bda4f48912d599bcca26"
+                }}
+            }}
+        }}"#,
+        restaurant_id = restaurant_id,
+        seating_option = seating_option,
+        reservation_date_time_str = reservation_date_time_str,
+        party_size = party_size,
+        slot_hash = slot_hash,
+        experience_id = experience_id,
+        experience_version = experience_version,
+        dining_area_id = dining_area_id
+    );
+
+}
