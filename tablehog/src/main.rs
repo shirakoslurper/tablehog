@@ -12,33 +12,33 @@ async fn main() -> Result<(), anyhow::Error> {
     let csrf_token = obtain_csrf_token(&client).await?;
     println!("csrf_token: {}", csrf_token);
 
+    let restaurant_id = 118267; // Maude
+    let experience_id = 285395; // Maude 10th Anniversary
+    let party_size = 2;
+    let date = time::macros::date!(2024-05-01);
+    let time_ = time::macros::time!(18:30);
+    let forward_minutes = 180;
+    let backwards_minutes= 0;
+    let forward_days = 30;
 
-    // let restaurant_id = 118267; // Maude
-    // let experience_id = 285395; // Maude 10th Anniversary
-    // let party_size = 2;
-    // let date = time::macros::date!(2024-05-01);
-    // let time_ = time::macros::time!(18:30);
-    // let forward_minutes = 180;
-    // let backwards_minutes= 0;
-    // let forward_days = 30;
+    let response = fetch_experience_availability(
+        &client, 
+        restaurant_id, 
+        experience_id, 
+        party_size, 
+        &date, 
+        &time_, 
+        forward_minutes, 
+        backwards_minutes, 
+        forward_days,
+        &csrf_token
+    ).await?;
 
-    // let response = fetch_experience_availability(
-    //     &client, 
-    //     restaurant_id, 
-    //     experience_id, 
-    //     party_size, 
-    //     &date, 
-    //     &time_, 
-    //     forward_minutes, 
-    //     backwards_minutes, 
-    //     forward_days
-    // ).await?;
+    println!("response: \n{:#?}", response);
 
-    // println!("response: \n{:#?}", response);
+    let response_json = response.json::<Value>().await?;
 
-    // let response_json = response.json::<Value>().await?;
-
-    // println!("response: {}", response_json);
+    println!("response: {}", response_json);
 
     Ok(())
 }

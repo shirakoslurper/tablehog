@@ -107,7 +107,8 @@ pub async fn fetch_experience_availability(
     time: &time::Time,
     backward_minutes: u32,
     forward_minutes: u32,
-    forward_days: u32
+    forward_days: u32,
+    x_csrf_token: &str
 ) -> Result<Response, anyhow::Error>{
 
     let date_time = time::PrimitiveDateTime::new(date.clone(), time.clone());
@@ -150,8 +151,6 @@ pub async fn fetch_experience_availability(
         forward_days = forward_days
     );
 
-    let cookie = "otuvid=E5D2BA16-2442-4BDA-8726-DE0010AE5491; _gcl_au=1.1.2069233118.1712703978; _fbp=fb.1.1712703978376.7255612793532183; otuvid_f=59dca7d7-b8f2-4dee-8a92-f77ed939db07; otuvid_p=9e94cedc-bce3-42d8-b99e-1069c5b8cbd1; otuvid_t=e99aacb2-1e66-4351-b0bb-29ef284dd014; ha_userSession=lastModified=2024-04-18T17%3A03%3A14.000Z&origin=prod-sc; _gid=GA1.2.333556256.1713571353; OT_dtp_values=datetime=2024-04-21 17:00; OT-SessionId=2d2a06d5-a4b5-4405-bb8e-b468cf4e0e64; _ga=GA1.2.536058515.1712703978; _dc_gtm_UA-52354388-1=1; _gat_UA-52354388-1=1; _uetsid=4a0923b0fea911ee87081d4213d27953; _uetvid=c6299ef0f6c511ee89de892746a54497; _ga_Y77FR7F6XF=GS1.1.1713746243.12.1.1713746249.0.0.0; ftc=x=2024-04-22T01%3A37%3A29&px=1&c=1&pt1=1&pt2=1&er=118267&p1ca=restaurant%2Fprofile%2F118267&p1q=corrid%3D321ab424-4288-4f4a-9354-5d0994b9015b%26p%3D2%26sd%3D2024-04-19T19%3A00%3A00; OT-Session-Update-Date=1713746249; bm_mi=D73127449117CE625F1F3974C379D91F~YAAQFPferV/LxeuOAQAAwIg8AxeXuvgfGxVJ0BFPoeyr4JgGJzXYsd3N2wODMgGCM3EkZY/JLGiUNh23qkjGAWyOXComSAcErlv018pyQaXEw4epFTTygynS70nBKc5a+nafI5YpmyOzRaQ2xk9g1jdVps7bQvsqKdyHtiVZSPvFhxAVLoGdSJF4PCD2w34pzpaBdKn3ATQK40dWY1QOA+CfWnCWanz4g7X5jAowh9KeHem8zAudMM+EzpoIhNM+vZ6qDsUlxjZlediyrNUtMTpoW/tuRDCnlZM2s2EMd2KYMU7tHvHWbdfDO8yGm5yRFd1EP6J359IAMh9R1P/cYxSykZS0K4A3XQVCrrZX9aoj~1; bm_sv=8E4D9AC69E69CE757B4663F5B6F75D02~YAAQFPferWDLxeuOAQAAwIg8AxcWlyLwaj/9IPhwltbou4piHwHTzB4oSpv7xhtDHcjbRd0/VOvTc+GAUKbthWpShyIyKTUOhFkn/wAhkLobHVToCI/RfDVLg6tK/1CubKLOy9AWuYGRuEK3Eq+VbhohM0gRLuC2uJqUiaKh4cK2NLivBCt4gWuc+nFENZ0XZa3SQRZj0HIMtw7ZiDc3AsDB2q6wqjByTmm2ZGthCCr5R/sdyOcbZz/wTb9u6ky7Zo3x~1; ak_bmsc=F2DC2B87A526AE6DE28314E50F2A0CD9~000000000000000000000000000000~YAAQFPferXLLxeuOAQAAMok8Axf8BdK1TOMD89qJUYYm51h9CpHNCJMMnLAJahUzHJ4IY8XeERv72cWNP1nCIDZvsYaqwEYuUYoUUixphTMBZ1nydR9ibDsjdgCgxwFx5ucW8fYpmCTRV5HSFsF/HiDhbpzjZZIBTx/AqDOq+rYuCSycfyGF5jlxqKhzfu2XvK0Yy/VTCm9q5mt66ImiL/AXS0VlIIiFg5/0XlfBIPLkPx+NVDmWGiEdkJ00iI7sMOJFEC7K+CFJbKvIu5CabWwOVbDBiYGiwvbwkek5zXnvTHa0XPdKBF6Lq8k4eeM4psejDPEBDiRTswhnd+g+sWhDYlVhrXtHu0KcZq2xxZvFn5zBTuzm9Kb88+AVBS7mw69Qlt3ija+sUWrzGRgedpyy2YbOVcb/OhxPnYEOpXpxnXLCJKAaaqHdAV85NAluluDm6YH1CeY3WNaU+ydk1rwGPlkRE+L+Zl8TwblF8CW3fvwoTyglT9JLh6q7ZJXVzIVKwYiM; OptanonConsent=isGpcEnabled=0&datestamp=Sun+Apr+21+2024+17%3A37%3A30+GMT-0700+(Pacific+Daylight+Time)&version=202402.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=3d16055f-9fd6-4110-90d7-6e97aa5e4e3e&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1&AwaitingReconsent=false";
-    let x_csrf_token = "15243d13-21d9-474f-83b6-45f744e519b4";
     let referer_str = format!("https://www.opentable.com/booking/experiences-availability?rid={}&experienceId={}&modal=true&covers={}&dateTime={}", 
         restaurant_id,
         experience_id,
@@ -163,7 +162,7 @@ pub async fn fetch_experience_availability(
         .header("accept", "*/*")
         .header("accept-language", "en-US,en;q=0.9")
         .header("content-type", "application/json")
-        .header("cookie", cookie)
+        .header("cookie", "")
         .header("origin", "https://www.opentable.com")
         .header("ot-page-group", "booking")
         .header("ot-page-type", "experiences_availability")
