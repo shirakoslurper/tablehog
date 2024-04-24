@@ -61,27 +61,18 @@ pub async fn obtain_csrf_token(
     client: &Client
 ) -> Result<String, anyhow::Error> {
 
-    let cookie = "otuvid=E5D2BA16-2442-4BDA-8726-DE0010AE5491; _gcl_au=1.1.2069233118.1712703978; _fbp=fb.1.1712703978376.7255612793532183; otuvid_f=59dca7d7-b8f2-4dee-8a92-f77ed939db07; otuvid_p=9e94cedc-bce3-42d8-b99e-1069c5b8cbd1; otuvid_t=e99aacb2-1e66-4351-b0bb-29ef284dd014; _gid=GA1.2.333556256.1713571353; OT_dtp_values=datetime=2024-04-21 17:00; ftc=x=2024-04-22T17%3A38%3A28&c=1&pt1=1&pt2=1; OT-SessionId=0c41e95e-d2f0-48f1-85dd-f3f8239a0c20; OptanonConsent=isGpcEnabled=0&datestamp=Mon+Apr+22+2024+09%3A38%3A30+GMT-0700+(Pacific+Daylight+Time)&version=202402.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=3d16055f-9fd6-4110-90d7-6e97aa5e4e3e&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=C0001%3A1%2CC0002%3A1%2CC0003%3A1%2CC0004%3A1&AwaitingReconsent=false; _dc_gtm_UA-52354388-1=1; _gat_UA-52354388-1=1; _ga=GA1.1.536058515.1712703978; ak_bmsc=58541929927206F0B3BB29523EDE84FE~000000000000000000000000000000~YAAQ69fOF/ztaPOOAQAAU2KsBhf7LexcmKLKS5Uw5TPuKjt7Sjx3Ne8T0je1b7ZMfeqRSedXZPpByCzGhWl1mf3GMwHCrp6qCvkc1EOThJKo20rvrx0aTBjXun27+iDwdE1N2c+RqPT0W0zAlSwxNtcG0XSgJzNVtAJhZrGL5pam/psuEw90C4KsnUdPBhrhbRruutA6ifCTe5UyBpwMBzbrPaeRSeyD4IGybTVyDR+D7Vn5OmReXsNwXaef6wm1O0HR0CTuzkKXweSD7YmEHLzgc7ZNDxURuUbPn2XIaU4Z/tqM0gTpO/tdlbKEtqvvtc9b4T8YoWg7RIH2BdF8tUUPPLIw49T03950grs2B99o9jFneEPK8cv9UhZqAEK9B5NuwYNSLRaxB2yZEPoHjFzs8Op9ytyVphsC3DGF+oRiGipuSN3wUhD0N8ZjOdkY4IaAJFlMR1D+F/uL; _uetsid=4a0923b0fea911ee87081d4213d27953; _uetvid=c6299ef0f6c511ee89de892746a54497; OT-Session-Update-Date=1713803912; bm_sv=157FC119B1590007B8F562AE6D4DABAC~YAAQ69fOF6fvaPOOAQAAQGesBhe+Z3hSW/Ie0eMiwhpZI50k29FXUP+gD5gV2P+SoTkwKIHzCjJC76yKBJcxjmgcyAUlldMXGQmLpOgZJyIZMqbIc73XnCMF9H57TGKKzrMoti/FTrJo0tEiZctcrYDfjTbU9CnF8kobFh1yFYzWefJ241lTdY1rcFu6viiZBklQdzvjTU2JyW9YtzdhThMQs5AQm56FktnYLu3m2l2QF0vHPEloetnIM4RR4fPfhgkn~1; _ga_Y77FR7F6XF=GS1.1.1713803900.14.1.1713803915.0.0.0";
+    // let cookie = "otuvid=6121D209-FDB2-497E-BB44-38B7B6C9F74F; _ga_Y77FR7F6XF=GS1.1.1713927421.15.1.1713927455.0.0.0";
 
     println!("obtaining CSRF token");
-    let html = client.get(OPENTABLE_URL)
-        .header("accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7")
-        .header("accept_language", "en-US,en;q=0.9")
-        .header("cookie", cookie)
-        .header("priority", "u=0, i")
-        .header("referer", "https://www.google.com/")
-        .header("sec-ch-ua", r#""Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99""#)
-        .header("sec-ch-ua-mobile", "?0")
-        .header("sec-ch-ua-platform", "\"macOS\"")
-        .header("sec-fetch-dest", "document")
-        .header("sec-fetch-mode", "navigate")
-        .header("sec-fetch-site", "cross-site")
-        .header("sec-fetch-user", "?1")
-        .header("upgrade-insecure-requests", "1")
-        .header("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+    let response = client.get(OPENTABLE_URL)
+        .header("user-agent", "curl/7.87.0")
+        .header("accept", "*/*")
         .send()
-        .await?
-        .text()
+        .await?;
+
+    println!("site request response:\n{:#?}", response);
+       
+    let html = response.text()
         .await?;
 
     println!("html:\n{}", html);
