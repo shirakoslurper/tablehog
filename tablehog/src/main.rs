@@ -31,7 +31,6 @@ async fn main() -> Result<(), anyhow::Error> {
         forward_minutes, 
         backwards_minutes, 
         forward_days,
-        &csrf_token
     ).await?;
 
     println!("response: \n{:#?}", response);

@@ -107,8 +107,7 @@ pub async fn fetch_experience_availability(
     time: &time::Time,
     backward_minutes: u32,
     forward_minutes: u32,
-    forward_days: u32,
-    x_csrf_token: &str
+    forward_days: u32
 ) -> Result<Response, anyhow::Error>{
 
     let date_time = time::PrimitiveDateTime::new(date.clone(), time.clone());
@@ -175,10 +174,12 @@ pub async fn fetch_experience_availability(
         .header("sec-fetch-mode", "cors")
         .header("sec-fetch-site", "same-origin")
         .header("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
-        .header("x-csrf-token", x_csrf_token)
+        .header("x-csrf-token", "")
         .header("x-query-timeout", "6883")
         .body(body)
         .send()
         .await
         .map_err(|e| e.into())
 }
+
+// pub async fn 
