@@ -9,6 +9,7 @@ use time::PrimitiveDateTime;
 pub const OPENTABLE_URL: &str = "https://www.opentable.com/";
 pub const RESTAURANT_AVAILABILITY_URL: &str = "https://www.opentable.com/dapi/fe/gql?optype=query&opname=RestaurantsAvailability";
 pub const EXPERIENCE_AVAILABILITY_URL: &str = "https://www.opentable.com/dapi/fe/gql?optype=query&opname=ExperienceAvailability";
+pub const BOOK_DETAILS_EXPERIENCE_SLOT_LOCK_URL: &str = "https://www.opentable.com/dapi/fe/gql?optype=mutation&opname=BookDetailsExperienceSlotLock";
 
 // pub async fn fetch_restaurant_availability(
 //     client: &Client,
@@ -104,20 +105,28 @@ pub async fn fetch_experience_availability(
     restaurant_id: u32,
     experience_id: u32,
     party_size: u32,
-    date: &time::Date,
-    time: &time::Time,
+    // date: &time::Date,
+    // time: &time::Time,
+    date_time: &time::PrimitiveDateTime,
     backward_minutes: u32,
     forward_minutes: u32,
     forward_days: u32
 ) -> Result<Response, anyhow::Error>{
 
-    let date_time = time::PrimitiveDateTime::new(date.clone(), time.clone());
+    // let date_time = time::PrimitiveDateTime::new(date.clone(), time.clone());
     let date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")?;
     let date_time_str = date_time.format(&date_time_format)?;
     let referer_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second]")?;
     let referer_date_time_str = date_time.format(&referer_date_time_format)?;
 
-    println!("date_time_str: {}", date_time_str);
+    // println!("date_time_str: {}", date_time_str);
+
+    let referer_str = format!("https://www.opentable.com/booking/experiences-availability?rid={}&experienceId={}&modal=true&covers={}&dateTime={}", 
+        restaurant_id,
+        experience_id,
+        party_size,
+        referer_date_time_str
+    );
 
     let body = formatdoc!(
         r#"{{
@@ -149,13 +158,6 @@ pub async fn fetch_experience_availability(
         backward_minutes = backward_minutes,
         forward_minutes = forward_minutes,
         forward_days = forward_days
-    );
-
-    let referer_str = format!("https://www.opentable.com/booking/experiences-availability?rid={}&experienceId={}&modal=true&covers={}&dateTime={}", 
-        restaurant_id,
-        experience_id,
-        party_size,
-        referer_date_time_str
     );
     
     client.post(EXPERIENCE_AVAILABILITY_URL)
@@ -193,9 +195,19 @@ pub async fn lock_book_details_experience_slot(
     experience_id: u32,
     experience_version: u32,
     dining_area_id: u32
-) {
+) -> Result<Response, anyhow::Error> {
 
-    let reservation_date_time_str = "";
+    let reservation_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")?;
+    let reservation_date_time_str = reservation_date_time.format(&reservation_date_time_format)?;
+    let referer_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second]")?;
+    let referer_date_time_str = reservation_date_time.format(&referer_date_time_format)?;
+
+    let referer_str = format!("https://www.opentable.com/booking/experiences-seating-options?rid={}&experienceId={}&modal=true&covers={}&dateTime={}", 
+        restaurant_id,
+        experience_id,
+        party_size,
+        referer_date_time_str
+    );
 
     let body = formatdoc!(
         r#"{{
@@ -230,4 +242,27 @@ pub async fn lock_book_details_experience_slot(
         dining_area_id = dining_area_id
     );
 
+    client.post(BOOK_DETAILS_EXPERIENCE_SLOT_LOCK_URL)
+    .header("accept", "*/*")
+    .header("accept-language", "en-US,en;q=0.9")
+    .header("content-type", "application/json")
+    .header("cookie", "")
+    .header("origin", "https://www.opentable.com")
+    .header("ot-page-group", "booking")
+    .header("ot-page-type", "experiences_seating_options")
+    .header("priority", "u=1, i")
+    .header("referer", referer_str)
+    .header("sec-ch-ua", "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\", \"Not-A.Brand\";v=\"99\"")
+    .header("sec-ch-ua-mobile", "?0")
+    .header("sec-ch-ua-platform", "\"macOS\"")
+    .header("sec-fetch-dest", "empty")
+    .header("sec-fetch-mode", "cors")
+    .header("sec-fetch-site", "same-origin")
+    .header("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+    .header("x-csrf-token", "")
+    .header("x-query-timeout", "4000")
+    .body(body)
+        .send()
+        .await
+        .map_err(|e| e.into())
 }
