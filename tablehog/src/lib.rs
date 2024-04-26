@@ -1,7 +1,7 @@
 use indoc::formatdoc;
 use reqwest::{Client, Response};
 use scraper::{Html, Selector};
-use time::PrimitiveDateTime;
+use time::{OffsetDateTime, PrimitiveDateTime};
 
 // Let's work with a string restaurant ID
 // And fetch availability
@@ -10,62 +10,15 @@ pub const OPENTABLE_URL: &str = "https://www.opentable.com/";
 pub const RESTAURANT_AVAILABILITY_URL: &str = "https://www.opentable.com/dapi/fe/gql?optype=query&opname=RestaurantsAvailability";
 pub const EXPERIENCE_AVAILABILITY_URL: &str = "https://www.opentable.com/dapi/fe/gql?optype=query&opname=ExperienceAvailability";
 pub const BOOK_DETAILS_EXPERIENCE_SLOT_LOCK_URL: &str = "https://www.opentable.com/dapi/fe/gql?optype=mutation&opname=BookDetailsExperienceSlotLock";
-
-// pub async fn fetch_restaurant_availability(
-//     client: &Client,
-//     restaurant_id: u32,
-//     party_size: u32,
-//     date: &time::Date,
-//     time: &time::Time    
-// ) -> Result<(), anyhow::Error> {
-//     let date_format = time::format_description::parse("[year]-[month]-[day]")?;
-//     let date_str = date.format(&date_format)?;
-
-//     let time_format = time::format_description::parse("[hour]:[minute]")?;
-//     let time_str = time.format(&time_format)?;
-
-//     let body = serde_json::json!({
-//         "operationName":"ExperienceAvailability", 
-//         "variables":{
-//             "onlyPop":false,
-//             "forwardDays":0,
-//             "requireTimes":false,
-//             "requireTypes":[],
-//             "restaurantIds":[restaurant_id],
-//             "date":date_str,
-//             "time":time_str,
-//             "partySize":party_size,
-//             "databaseRegion":"NA",
-//             "restaurantAvailabilityTokens":[null],
-//             "slotDiscovery":["on"],
-//             "loyaltyRedemptionTiers":[],
-//             "attributionToken":null
-//         },
-//         "extensions":{
-//             "persistedQuery":{
-//                 "version":1,
-//                 "sha256Hash":"2aee2372b4496d091f057a6004c6d79fbf01ffdc8faf13d3887703a1ba45a3b8"
-//             }
-//         }
-//     });
-
-
-//     // Make the POST request
-//     let mut builder = client.post(RESTAURANT_AVAILABILITY_URL)
-//         .json(
-//             &body
-//         );
-
-//     Ok(())
-// }
+pub const MAKE_RESERVATION_URL: &str = "https://www.opentable.com/dapi/booking/make-reservation";
+pub const SPREEDLY_ENVIRONMENT_KET: &str = "BZiZWqR6ai03EW7Ep7sMIwaB4TI";
 
 pub async fn obtain_csrf_token(
     client: &Client
 ) -> Result<String, anyhow::Error> {
 
-    // let cookie = "otuvid=6121D209-FDB2-497E-BB44-38B7B6C9F74F; _ga_Y77FR7F6XF=GS1.1.1713927421.15.1.1713927455.0.0.0";
-
     println!("obtaining CSRF token");
+
     let response = client.get(OPENTABLE_URL)
         .header("user-agent", "curl/7.87.0")
         .header("accept", "*/*")
@@ -105,21 +58,16 @@ pub async fn fetch_experience_availability(
     restaurant_id: u32,
     experience_id: u32,
     party_size: u32,
-    // date: &time::Date,
-    // time: &time::Time,
     date_time: &time::PrimitiveDateTime,
     backward_minutes: u32,
     forward_minutes: u32,
     forward_days: u32
 ) -> Result<Response, anyhow::Error>{
 
-    // let date_time = time::PrimitiveDateTime::new(date.clone(), time.clone());
     let date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")?;
     let date_time_str = date_time.format(&date_time_format)?;
     let referer_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second]")?;
     let referer_date_time_str = date_time.format(&referer_date_time_format)?;
-
-    // println!("date_time_str: {}", date_time_str);
 
     let referer_str = format!("https://www.opentable.com/booking/experiences-availability?rid={}&experienceId={}&modal=true&covers={}&dateTime={}", 
         restaurant_id,
@@ -265,4 +213,170 @@ pub async fn lock_book_details_experience_slot(
         .send()
         .await
         .map_err(|e| e.into())
+}
+
+
+pub struct MakeReservationDetails<'a> {
+    pub attribution_token: &'a str,
+    pub credit_card_last_four: &'a str,
+    pub credit_card_mmyy: &'a str,
+    pub credit_card_token: &'a str,
+    pub dining_area_id: u32,
+    pub email: &'a str,
+    pub experience_id: u32,
+    pub experience_version: u32,
+    pub fbp: &'a str,
+    pub first_name: &'a str,
+    pub last_name: &'a str,
+    pub party_size: u32,
+    pub points: u32,
+    pub points_type: &'a str,
+    pub reservation_attribute: &'a str,
+    pub reservation_date_time: &'a time::PrimitiveDateTime,
+    pub reservation_type: &'a str,
+    pub restaurant_id: u32,
+    pub slot_availability_token: &'a str,
+    pub slot_hash: u32,
+    pub slot_lock_id: u32,
+    pub phone_number: &'a str
+}
+// // TODO: Look up how people typically pass this many
+// // arguments when making a request w/ JSON data
+// pub async fn make_experience_reservation<'a>(
+//     client: &Client,
+//     make_reservation_details: MakeReservationDetails<'a>
+// ) -> Result<Response, anyhow::Error> {
+    
+//     let reservation_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")?;
+//     let reservation_date_time_str = make_reservation_details.reservation_date_time.format(&reservation_date_time_format)?;
+//     let referer_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second]")?;
+//     let referer_date_time_str = make_reservation_details.reservation_date_time.format(&referer_date_time_format)?;
+
+//     // let current_date_time = time::OffsetDateTime::from(std::time::SystemTime::now());
+//     // prin
+//     // let attribution_token__current_date_time_format = time::format_description::parse("[][][]")?;
+
+//     let attribution_token_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]%3A[minute]%3A[second]")?;
+//     let attribution_token_date_time_str = make_reservation_details.reservation_date_time.format(&attribution_token_date_time_format)?;
+
+//     let referer_str = format!("https://www.opentable.com/booking/experiences-details?rid={}&experienceId={}&modal=true&covers={}&dateTime={}", 
+//         make_reservation_details.restaurant_id,
+//         make_reservation_details.experience_id,
+//         make_reservation_details.party_size,
+//         referer_date_time_str
+//     );
+
+//     let attribution_token_str = format!(
+//         "x={}&c=1&pt1=1&pt2=1&er={}&p1ca=booking%2Fexperiences-availability&p1q=rid%3D{}%26experienceId%3D{}%26modal%3Dtrue%26covers%3D{}%26dateTime%3D2024-05-06T19%3A00%3A00",
+//         attribution_token_date_time_str,
+//         make_reservation_details.restaurant_id,
+//         make_reservation_details.restaurant_id,
+//         make_reservation_details.experience_id,
+//         make_reservation_details.party_size,
+
+//     );
+
+//     // I think credit card provider depends on country.
+//     // For now, I think the US will do!
+//     let body = formatdoc!(
+//         r#"{{
+//             "additionalServiceFees":[],
+//             "attributionToken":"{attribution_token}",
+//             "country":"US",
+//             "creditCardLast4":"{credit_card_last_four}",
+//             "creditCardMMYY":"{credit_card_mmyy}",
+//             "creditCardProvider":"spreedly",
+//             "creditCardToken":"{credit_card_token}",
+//             "diningAreaId":{dining_area_id},
+//             "email":"{email}",
+//             "experienceAddOns":[],
+//             "experienceId":{experience_id},
+//             "experienceVersion":{experience_version},
+//             "fbp":"{fbp}",
+//             "firstName":"{first_name}",
+//             "isBookAnywhere":true,
+//             "isModify":false,
+//             "katakanaFirstName":"",
+//             "katakanaLastName":"",
+//             "lastName":"{last_name}",
+//             "nonBookableExperiences":[],
+//             "partySize":{party_size},
+//             "points":{points},
+//             "pointsType":"{points_type}",
+//             "reservationAttribute":"{reservation_attribute}",
+//             "reservationDateTime":"{reservation_date_time}",
+//             "reservationType":"{reservation_type}",
+//             "restaurantId":{restaurant_id},
+//             "scaRedirectUrl":"https://www.opentable.com/booking/payments-sca",
+//             "slotAvailabilityToken":"{slot_availability_token}",
+//             "slotHash":{slot_hash},
+//             "slotLockId": {slot_lock_id},
+//             "tipAmount":0,
+//             "tipPercent":0,
+//             "phoneNumber":"{phone_number}",
+//             "phoneNumberCountryId":"US",
+//             "optInEmailRestaurant":false
+//         }}"#,
+//         attribution_token = make_reservation_details.attribution_token,
+//         credit_card_last_four = make_reservation_details.credit_card_last_four,
+//         credit_card_mmyy = make_reservation_details.credit_card_mmyy,
+//         credit_card_token = make_reservation_details.credit_card_token,
+//         dining_area_id = make_reservation_details.dining_area_id,
+//         email = make_reservation_details.email,
+//         experience_id = make_reservation_details.experience_id,
+//         experience_version = make_reservation_details.experience_version,
+//         fbp = make_reservation_details.fbp,
+//         first_name = make_reservation_details.first_name,
+//         last_name = make_reservation_details.last_name,
+//         party_size = make_reservation_details.party_size,
+//         points = make_reservation_details.points,
+//         points_type = make_reservation_details.points_type,
+//         reservation_attribute = make_reservation_details.reservation_attribute,
+//         reservation_date_time = reservation_date_time_str,
+//         reservation_type = make_reservation_details.reservation_type,
+//         restaurant_id = make_reservation_details.restaurant_id,
+//         slot_availability_token = make_reservation_details.slot_availability_token,
+//         slot_hash = make_reservation_details.slot_hash,
+//         slot_lock_id = make_reservation_details.slot_lock_id,
+//         phone_number = make_reservation_details.phone_number
+//     );
+
+//     client.post()
+//         .header("accept", "*/*")
+//         .header("accept-language", "en-US,en;q=0.9")
+//         .header("content-type", "application/json")
+//         .header("cookie", "")
+//         .header("origin", "https://www.opentable.com")
+//         .header("ot-page-group", "booking")
+//         .header("ot-page-type", "experiences_availability")
+//         .header("priority", "u=1, i")
+//         .header("referer", referer_str)
+//         .header("sec-ch-ua", "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\", \"Not-A.Brand\";v=\"99\"")
+//         .header("sec-ch-ua-mobile", "?0")
+//         .header("sec-ch-ua-platform", "\"macOS\"")
+//         .header("sec-fetch-dest", "empty")
+//         .header("sec-fetch-mode", "cors")
+//         .header("sec-fetch-site", "same-origin")
+//         .header("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+//         .header("x-csrf-token", "")
+//         .send()
+//         .await
+//         .map_err(|e| e.into())
+// }
+
+pub fn unix_offset_date_time_now_local() -> Result<time::OffsetDateTime, anyhow::Error> {
+    let mut timezone: libc::tm = unsafe { std::mem::zeroed() };
+    let mut timestamp: libc::time_t = 0;
+    unsafe {
+        libc::time(&mut timestamp);
+        libc::localtime_r(&timestamp, &mut timezone);
+    }
+
+    let utc_offset_seconds = i32::try_from(timezone.tm_gmtoff)?;
+    let utc_offset = time::UtcOffset::from_whole_seconds(utc_offset_seconds)?;
+
+    let current_date_time_utc = time::OffsetDateTime::from_unix_timestamp(timestamp)?;
+    let current_date_time_offset = current_date_time_utc.to_offset(utc_offset);
+
+    Ok(current_date_time_offset)
 }
