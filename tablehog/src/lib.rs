@@ -1,6 +1,7 @@
 use indoc::formatdoc;
 use reqwest::{Client, Response};
 use scraper::{Html, Selector};
+use serde::{Serialize, Deserialize};
 use time::{OffsetDateTime, PrimitiveDateTime};
 
 // Let's work with a string restaurant ID
@@ -11,7 +12,9 @@ pub const RESTAURANT_AVAILABILITY_URL: &str = "https://www.opentable.com/dapi/fe
 pub const EXPERIENCE_AVAILABILITY_URL: &str = "https://www.opentable.com/dapi/fe/gql?optype=query&opname=ExperienceAvailability";
 pub const BOOK_DETAILS_EXPERIENCE_SLOT_LOCK_URL: &str = "https://www.opentable.com/dapi/fe/gql?optype=mutation&opname=BookDetailsExperienceSlotLock";
 pub const MAKE_RESERVATION_URL: &str = "https://www.opentable.com/dapi/booking/make-reservation";
-pub const SPREEDLY_ENVIRONMENT_KET: &str = "BZiZWqR6ai03EW7Ep7sMIwaB4TI";
+
+pub const SPREEDLY_PAYMENT_METHODS_URL: &str = "https://core.spreedly.com/v1/payment_methods/restricted.json?from=iframe&v=1.124";
+pub const SPREEDLY_ENVIRONMENT_KEY: &str = "BZiZWqR6ai03EW7Ep7sMIwaB4TI";
 
 pub async fn obtain_csrf_token(
     client: &Client
@@ -216,30 +219,30 @@ pub async fn lock_book_details_experience_slot(
 }
 
 
-pub struct MakeReservationDetails<'a> {
-    pub attribution_token: &'a str,
-    pub credit_card_last_four: &'a str,
-    pub credit_card_mmyy: &'a str,
-    pub credit_card_token: &'a str,
-    pub dining_area_id: u32,
-    pub email: &'a str,
-    pub experience_id: u32,
-    pub experience_version: u32,
-    pub fbp: &'a str,
-    pub first_name: &'a str,
-    pub last_name: &'a str,
-    pub party_size: u32,
-    pub points: u32,
-    pub points_type: &'a str,
-    pub reservation_attribute: &'a str,
-    pub reservation_date_time: &'a time::PrimitiveDateTime,
-    pub reservation_type: &'a str,
-    pub restaurant_id: u32,
-    pub slot_availability_token: &'a str,
-    pub slot_hash: u32,
-    pub slot_lock_id: u32,
-    pub phone_number: &'a str
-}
+// pub struct MakeReservationDetails<'a> {
+//     pub credit_card_last_four: &'a str,
+//     pub credit_card_mmyy: &'a str,
+//     pub credit_card_token: &'a str,
+//     pub dining_area_id: u32,
+//     pub email: &'a str,
+//     pub experience_id: u32,
+//     pub experience_version: u32,
+//     pub fbp: &'a str,
+//     pub first_name: &'a str,
+//     pub last_name: &'a str,
+//     pub party_size: u32,
+//     pub points: u32,
+//     pub points_type: &'a str,
+//     pub reservation_attribute: &'a str,
+//     pub reservation_date_time: &'a time::PrimitiveDateTime,
+//     pub reservation_type: &'a str,
+//     pub restaurant_id: u32,
+//     pub slot_availability_token: &'a str,
+//     pub slot_hash: u32,
+//     pub slot_lock_id: u32,
+//     pub phone_number: &'a str
+// }
+
 // // TODO: Look up how people typically pass this many
 // // arguments when making a request w/ JSON data
 // pub async fn make_experience_reservation<'a>(
@@ -252,12 +255,12 @@ pub struct MakeReservationDetails<'a> {
 //     let referer_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second]")?;
 //     let referer_date_time_str = make_reservation_details.reservation_date_time.format(&referer_date_time_format)?;
 
-//     // let current_date_time = time::OffsetDateTime::from(std::time::SystemTime::now());
-//     // prin
-//     // let attribution_token__current_date_time_format = time::format_description::parse("[][][]")?;
+//     let current_date_time = unix_offset_date_time_now_local()?;
+//     let attribution_token_current_date_time_format = time::format_description::parse("[][][]")?;
+//     let attribution_token_current_date_time_str = current_date_time.format(&attribution_token_current_date_time_format)?;
 
-//     let attribution_token_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]%3A[minute]%3A[second]")?;
-//     let attribution_token_date_time_str = make_reservation_details.reservation_date_time.format(&attribution_token_date_time_format)?;
+//     let attribution_token_reservation_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]%3A[minute]%3A[second]")?;
+//     let attribution_token_reservation_date_time_str = make_reservation_details.reservation_date_time.format(&attribution_token_reservation_date_time_format)?;
 
 //     let referer_str = format!("https://www.opentable.com/booking/experiences-details?rid={}&experienceId={}&modal=true&covers={}&dateTime={}", 
 //         make_reservation_details.restaurant_id,
@@ -267,13 +270,13 @@ pub struct MakeReservationDetails<'a> {
 //     );
 
 //     let attribution_token_str = format!(
-//         "x={}&c=1&pt1=1&pt2=1&er={}&p1ca=booking%2Fexperiences-availability&p1q=rid%3D{}%26experienceId%3D{}%26modal%3Dtrue%26covers%3D{}%26dateTime%3D2024-05-06T19%3A00%3A00",
-//         attribution_token_date_time_str,
+//         "x={}&c=1&pt1=1&pt2=1&er={}&p1ca=booking%2Fexperiences-availability&p1q=rid%3D{}%26experienceId%3D{}%26modal%3Dtrue%26covers%3D{}%26dateTime%3D{}",
+//         attribution_token_current_date_time_str,
 //         make_reservation_details.restaurant_id,
 //         make_reservation_details.restaurant_id,
 //         make_reservation_details.experience_id,
 //         make_reservation_details.party_size,
-
+//         attribution_token_reservation_date_time_str
 //     );
 
 //     // I think credit card provider depends on country.
@@ -317,7 +320,7 @@ pub struct MakeReservationDetails<'a> {
 //             "phoneNumberCountryId":"US",
 //             "optInEmailRestaurant":false
 //         }}"#,
-//         attribution_token = make_reservation_details.attribution_token,
+//         attribution_token = attribution_token_str,
 //         credit_card_last_four = make_reservation_details.credit_card_last_four,
 //         credit_card_mmyy = make_reservation_details.credit_card_mmyy,
 //         credit_card_token = make_reservation_details.credit_card_token,
@@ -341,7 +344,7 @@ pub struct MakeReservationDetails<'a> {
 //         phone_number = make_reservation_details.phone_number
 //     );
 
-//     client.post()
+//     client.post(MAKE_RESERVATION_URL)
 //         .header("accept", "*/*")
 //         .header("accept-language", "en-US,en;q=0.9")
 //         .header("content-type", "application/json")
@@ -363,6 +366,84 @@ pub struct MakeReservationDetails<'a> {
 //         .await
 //         .map_err(|e| e.into())
 // }
+
+
+pub struct CardDetails<'a> {
+    pub number: &'a str,
+    pub cvv: &'a str,
+    pub first_name: &'a str,
+    pub last_name: &'a str,
+    pub month: u32,
+    pub year: u32,
+    pub zip_code: &'a str // Maybe number type idk yet
+}
+
+#[derive(Deserialize, Debug)]
+pub struct SpreedlyAddPaymentMethodResponse {
+    transaction: SpreedlyTransaction
+}
+
+#[derive(Deserialize, Debug)]
+struct SpreedlyTransaction {
+    payment_method: SpreedlyPaymentMethod,
+    succeeded: bool
+}
+
+#[derive(Deserialize, Debug)]
+struct SpreedlyPaymentMethod {
+    token: String // This is the token we need!
+}
+
+// Assumes NA
+pub async fn spreedly_add_payment_method<'a>(
+    client: &Client,
+    card_details: &CardDetails<'a>
+) -> Result<Response, anyhow::Error> {
+    let body = formatdoc!(
+        r#"{{
+            "environment_key":"{environment_key}",
+            "payment_method":{{
+                "credit_card":{{
+                    "number":"{number}",
+                    "verification_value":"{verification_value}",
+                    "full_name":"{first_name} {last_name}",
+                    "month":"{month}",
+                    "year":"{year}",
+                    "zip":"{zip}"
+                }}
+            }}
+        }}"#,
+        environment_key = SPREEDLY_ENVIRONMENT_KEY,
+        number = card_details.number,
+        verification_value = card_details.cvv,
+        first_name = card_details.first_name,
+        last_name = card_details.last_name,
+        month = card_details.month,
+        year = card_details.year,
+        zip = card_details.zip_code
+    );
+
+    client.post(SPREEDLY_PAYMENT_METHODS_URL)
+        .header("accept", "*/*")
+        .header("accept-language", "en-US,en;q=0.9")
+        .header("content-type", "application/json")
+        .header("origin", "https://core.spreedly.com")
+        .header("priority", "u=1, i")
+        .header("referer", "https://core.spreedly.com/v1/embedded/number-frame-1.124.html")
+        .header("sec-ch-ua", "\"Chromium\";v=\"124\", \"Google Chrome\";v=\"124\", \"Not-A.Brand\";v=\"99\"")
+        .header("sec-ch-ua-mobile", "?0")
+        .header("sec-ch-ua-platform", "\"macOS\"")
+        .header("sec-fetch-dest", "empty")
+        .header("sec-fetch-mode", "cors")
+        .header("sec-fetch-site", "same-origin")
+        .header("spreedly-environment-key", SPREEDLY_ENVIRONMENT_KEY)
+        .header("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")
+        .body(body)
+        .send()
+        .await
+        .map_err(|e| e.into())
+}
+
 
 pub fn unix_offset_date_time_now_local() -> Result<time::OffsetDateTime, anyhow::Error> {
     let mut timezone: libc::tm = unsafe { std::mem::zeroed() };
