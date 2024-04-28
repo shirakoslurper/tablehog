@@ -56,6 +56,74 @@ pub async fn obtain_csrf_token(
     Err(anyhow::anyhow!("No CSRF token present in HTML"))
 }
 
+// TODO: Consider a more general type
+#[derive(Deserialize, Debug)]
+pub struct ExperienceAvailabilityOuterResponse {
+    pub data: ExperienceAvailabilityData
+}
+
+#[derive(Deserialize, Debug)]
+struct ExperienceAvailabilityData {
+    #[serde(rename(deserialize="experienceAvailability"))]
+    pub experience_availability: ExperienceAvailabilityResponse
+}
+
+#[derive(Deserialize, Debug)]
+struct ExperienceAvailabilityResponse {
+    pub available: Vec<ExperienceAvailability>
+}
+
+#[derive(Deserialize, Debug)]
+struct ExperienceAvailability {
+    #[serde(rename(deserialize="dayOffset"))]
+    pub day_offset: u32,
+    #[serde(rename(deserialize="restaurantSet"))]
+    pub restaurant_set: Vec<RestaurantSet>,
+}
+
+#[derive(Deserialize, Debug)]
+struct RestaurantSet {
+    pub available: bool,
+    pub results: RestaurantSetResults
+}
+
+#[derive(Deserialize, Debug)]
+struct RestaurantSetResults {
+    pub experience: Option<Vec<ExperienceSlot>>
+}
+
+#[derive(Deserialize, Debug)]
+struct ExperienceSlot {
+    pub attributes: Vec<String>,
+    //bookableExperienceDiningAreas
+    #[serde(rename(deserialize="creditCardRequired"))]
+    pub credit_card_required: bool,
+    #[serde(rename(deserialize="pointsType"))]
+    pub points_type: String,
+    #[serde(rename(deserialize="pointsValue"))]
+    pub points_value: u32,
+    #[serde(rename(deserialize="slotAvailabilityToken"))]
+    pub slot_availability_token: String,
+    #[serde(rename(deserialize="slotHash"))]
+    pub slot_hash: u64,
+    #[serde(rename(deserialize="timeOffsetMinutes"))]
+    pub time_offset_minutes: i32,
+}
+
+#[derive(Deserialize, Debug)]
+struct BookableExperienceDiningAreas {
+    #[serde(rename(deserialize="diningAreas"))]
+    pub dining_areas: Vec<DiningArea>
+}
+
+#[derive(Deserialize, Debug)]
+struct DiningArea {
+    pub attributes: Vec<String>,
+    #[serde(rename(deserialize="diningAreaId"))]
+    pub dining_area_id: u32
+}
+
+
 pub async fn fetch_experience_availability(
     client: &Client,
     restaurant_id: u32,
@@ -66,7 +134,6 @@ pub async fn fetch_experience_availability(
     forward_minutes: u32,
     forward_days: u32
 ) -> Result<Response, anyhow::Error>{
-
     let date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")?;
     let date_time_str = date_time.format(&date_time_format)?;
     let referer_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second]")?;

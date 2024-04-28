@@ -16,10 +16,10 @@ async fn main() -> Result<(), anyhow::Error> {
 
     let restaurant_id = 14410;  // Osteria Mozza
     let experience_id = 208989; // Pasta Tasting Menu
-    let seating_option = "COUNTER";
-    let slot_hash = 2635132527;
-    let experience_version = 9;
-    let dining_area_id = 1;
+    // let seating_option = "COUNTER";
+    // let slot_hash = 2635132527;
+    // let experience_version = 9;
+    // let dining_area_id = 1;
 
     let party_size = 2;
     // let date = time::macros::date!(2024-05-06);
@@ -42,50 +42,50 @@ async fn main() -> Result<(), anyhow::Error> {
 
     println!("experience_availability_response: \n{:#?}", experience_availability_response);
 
-    let experience_availability_response_json = experience_availability_response.json::<serde_json::Value>().await?;
+    let experience_availability_response_json = experience_availability_response.json::<ExperienceAvailabilityOuterResponse>().await?;
 
-    println!("experience_availability_response_json: {}", serde_json::to_string_pretty(&experience_availability_response_json)?);
+    println!("experience_availability_response_json: {:#?}", experience_availability_response_json);
 
-    let slot_lock_response = lock_book_details_experience_slot(
-        &client, 
-        restaurant_id, 
-        seating_option, 
-        &date_time, 
-        party_size, 
-        slot_hash, 
-        experience_id, 
-        experience_version, 
-        dining_area_id
-    ).await?;
+    // let slot_lock_response = lock_book_details_experience_slot(
+    //     &client, 
+    //     restaurant_id, 
+    //     seating_option, 
+    //     &date_time, 
+    //     party_size, 
+    //     slot_hash, 
+    //     experience_id, 
+    //     experience_version, 
+    //     dining_area_id
+    // ).await?;
 
-    println!("slot_lock_response: \n{:#?}", slot_lock_response);
+    // println!("slot_lock_response: \n{:#?}", slot_lock_response);
 
-    let slot_lock_response_json = slot_lock_response.json::<serde_json::Value>().await?;
+    // let slot_lock_response_json = slot_lock_response.json::<serde_json::Value>().await?;
 
-    println!("slot_lock_response_json: {}", slot_lock_response_json);
+    // println!("slot_lock_response_json: {}", slot_lock_response_json);
 
-    let card_details = CardDetails {
-        number: "4347 6970 7337 9635",
-        cvv: "635",
-        first_name: "Jack",
-        last_name: "Baxter",
-        month: 5,
-        year: 2026,
-        zip_code: "90025"
-    };
+    // let card_details = CardDetails {
+    //     number: "4347 6970 7337 9635",
+    //     cvv: "635",
+    //     first_name: "Jack",
+    //     last_name: "Baxter",
+    //     month: 5,
+    //     year: 2026,
+    //     zip_code: "90025"
+    // };
 
-    println!("adding card to spreedly");
+    // println!("adding card to spreedly");
 
-    let add_card_to_spreedly_response = spreedly_add_payment_method(
-        &client, 
-        &card_details
-    ).await?;
+    // let add_card_to_spreedly_response = spreedly_add_payment_method(
+    //     &client, 
+    //     &card_details
+    // ).await?;
 
-    println!("add_card_to_spreedly_response: {:#?}", add_card_to_spreedly_response);
+    // println!("add_card_to_spreedly_response: {:#?}", add_card_to_spreedly_response);
 
-    let add_card_to_spreedly_response_json = add_card_to_spreedly_response.json::<SpreedlyAddPaymentMethodResponse>().await?;
+    // let add_card_to_spreedly_response_json = add_card_to_spreedly_response.json::<SpreedlyAddPaymentMethodResponse>().await?;
 
-    println!("add_card_to_spreedly_response_json: {:#?}", add_card_to_spreedly_response_json);
+    // println!("add_card_to_spreedly_response_json: {:#?}", add_card_to_spreedly_response_json);
 
     // let make_reservation_details = MakeReservationDetails{
     //     credit_card_last_four: "",
