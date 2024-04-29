@@ -1,7 +1,5 @@
-use std::thread::current;
-
+use anyhow::Context;
 use tablehog::*;
-use time::OffsetDateTime;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
@@ -18,17 +16,18 @@ async fn main() -> Result<(), anyhow::Error> {
     // let restaurant_id = 118267; // Maude
     // let experience_id = 285395; // Maude 10th Anniversary
 
+    // BOOKER DETAILS
+    let first_name = "Jack";
+    let last_name = "Baxter";
+    let email = "jacquesspeedbaxter@gmail.com";
+    let phone_number = "2133678834";
+
+    // RESTAURANT & EXPERIENCE DETAILS
     let restaurant_id = 14410;  // Osteria Mozza
     let experience_id = 208989; // Pasta Tasting Menu
-    // let seating_option = "COUNTER";
-    // let slot_hash = 2635132527;
-    // let experience_version = 9;
-    // let dining_area_id = 1;
-
+    let experience_version = 9;
     let party_size = 2;
-    // let date = time::macros::date!(2024-05-06);
-    // let time_ = time::macros::time!(18:30);
-    let date_time = time::OffsetDateTime::new_in_offset(
+    let reference_date_time = time::OffsetDateTime::new_in_offset(
         time::macros::date!(2024-05-06),
         time::macros::time!(18:00), 
         current_offset_date_time.offset()
@@ -37,91 +36,115 @@ async fn main() -> Result<(), anyhow::Error> {
     let backwards_minutes= 0;
     let forward_days = 30;
 
-    let experience_availability_response = fetch_experience_availability(
+    // DIFFICULT TO FETCH DETAILS
+    let fbp = "fb.1.1714196411819.1399697290534310";
+
+    let fetch_experience_availability_response = fetch_experience_availability(
         &client, 
         restaurant_id, 
         experience_id, 
         party_size, 
-        &date_time, 
+        &reference_date_time, 
         forward_minutes, 
         backwards_minutes, 
         forward_days,
     ).await?;
 
-    println!("experience_availability_response: \n{:#?}", experience_availability_response);
+    println!("fetch_experience_availability_response: \n{:#?}", fetch_experience_availability_response);
 
-    let experience_availability_response_json = experience_availability_response.json::<FetchExperienceAvailabilityResponse>().await?;
+    let deser_fetch_experience_availability_response = fetch_experience_availability_response.json::<FetchExperienceAvailabilityResponse>().await?;
 
-    println!("experience_availability_response_json: {:#?}", experience_availability_response_json);
+    println!("deser_fetch_experience_availability_response: {:#?}", deser_fetch_experience_availability_response);
 
-    let available_experiences = available_experience_slots(&experience_availability_response_json);
+    let day_offset_to_experience_slots = available_experience_slots(&deser_fetch_experience_availability_response);
 
-    println!("available_experiences: {:#?}", available_experiences);
+    println!("day_offset_to_experience_slots: {:#?}", day_offset_to_experience_slots);
 
-    // let slot_lock_response = book_details_experience_slot_lock(
-    //     &client, 
-    //     restaurant_id, 
-    //     seating_option, 
-    //     &date_time, 
-    //     party_size, 
-    //     slot_hash, 
-    //     experience_id, 
-    //     experience_version, 
-    //     dining_area_id
-    // ).await?;
+    let locked_slot = lock_first_available_slot(
+        &client, 
+        &day_offset_to_experience_slots, 
+        &LockFirstAvailableSlotDetails {
+            restaurant_id,
+            reference_date_time,
+            party_size,
+            experience_id,
+            experience_version
+        }
+    )
+    .await?
+    .context("Failed to lock a slot")?;
 
-    // println!("slot_lock_response: \n{:#?}", slot_lock_response);
+    println!("locked_slot: {:#?}", locked_slot);
 
-    // let slot_lock_response_json = slot_lock_response.json::<serde_json::Value>().await?;
+    // PLACEHOLDER CARD DETAILS
+    // TODO: HAVE DATE DETAILS BE IN OFFSETDATETIME
+    // SO WE CAN CHOOSE TO FORMAT IT DIFFERENTLY
+    // EX: MMYY OR AS BELOW
+    let card_details = CardDetails {
+        number: "4347697073379635",
+        cvv: "635",
+        first_name: "Jack",
+        last_name: "Baxter",
+        month: 5,
+        year: 2027,
+        zip_code: "90025"
+    };
+    // TODO: PARSE CREDIT_CARD_LAST FOUR
+    let credit_card_last_four = "9635";
+    let credit_card_mmyy = "0527";
 
-    // println!("slot_lock_response_json: {}", slot_lock_response_json);
+    println!("adding card to spreedly");
 
-    // let card_details = CardDetails {
-    //     number: "4347 6970 7337 9635",
-    //     cvv: "635",
-    //     first_name: "Jack",
-    //     last_name: "Baxter",
-    //     month: 5,
-    //     year: 2026,
-    //     zip_code: "90025"
-    // };
+    let spreedly_add_payment_method_response = spreedly_add_payment_method(
+        &client, 
+        &card_details
+    ).await?;
 
-    // println!("adding card to spreedly");
+    println!("spreedly_add_payment_method_response: {:#?}", spreedly_add_payment_method_response);
 
-    // let add_card_to_spreedly_response = spreedly_add_payment_method(
-    //     &client, 
-    //     &card_details
-    // ).await?;
+    let deser_spreedly_add_payment_method_response = spreedly_add_payment_method_response.json::<SpreedlyAddPaymentMethodResponse>().await?;
 
-    // println!("add_card_to_spreedly_response: {:#?}", add_card_to_spreedly_response);
+    println!("deser_spreedly_add_payment_method_response: {:#?}", deser_spreedly_add_payment_method_response);
 
-    // let add_card_to_spreedly_response_json = add_card_to_spreedly_response.json::<SpreedlyAddPaymentMethodResponse>().await?;
+    // TODO: CHECK FOR CARD ADDED SUCCESS IN REAL FLOWS
+    if !deser_spreedly_add_payment_method_response.transaction.succeeded {
+        return Err(anyhow::anyhow!("Failed to add payment method!"));
+    }
 
-    // println!("add_card_to_spreedly_response_json: {:#?}", add_card_to_spreedly_response_json);
+    let make_experience_reservation_details = MakeExperienceReservationDetails{
+        credit_card_last_four,
+        credit_card_mmyy,
+        credit_card_token: &deser_spreedly_add_payment_method_response.transaction.payment_method.token,
+        dining_area_id: 1,
+        email,
+        experience_id,
+        experience_version,
+        fbp,
+        first_name,
+        last_name,
+        party_size,
+        points: locked_slot.experience_slot.points_value,
+        points_type: &locked_slot.experience_slot.points_type,
+        reservation_attribute: &locked_slot.chosen_attribute,
+        reservation_date_time: &locked_slot.date_time,
+        restaurant_id,
+        slot_availability_token: &locked_slot.experience_slot.slot_availability_token,
+        slot_hash: locked_slot.experience_slot.slot_hash,
+        slot_lock_id: locked_slot.slot_lock_id,
+        phone_number
+    };
 
-    // let make_reservation_details = MakeReservationDetails{
-    //     credit_card_last_four: "",
-    //     credit_card_mmyy: "",
-    //     credit_card_token: "",
-    //     dining_area_id: 1,
-    //     email: &'a str,
-    //     pub experience_id: u32,
-    //     pub experience_version: u32,
-    //     pub fbp: &'a str,
-    //     pub first_name: &'a str,
-    //     pub last_name: &'a str,
-    //     pub party_size: u32,
-    //     pub points: u32,
-    //     pub points_type: &'a str,
-    //     pub reservation_attribute: &'a str,
-    //     pub reservation_date_time: &'a time::PrimitiveDateTime,
-    //     pub reservation_type: &'a str,
-    //     pub restaurant_id: u32,
-    //     pub slot_availability_token: &'a str,
-    //     pub slot_hash: u32,
-    //     pub slot_lock_id: u32,
-    //     pub phone_number: &'a str
-    // };
+    let make_experience_reservation_response = make_experience_reservation(
+        &client,
+        &make_experience_reservation_details
+    )
+    .await?;
+
+    println!("make_experience_reservation_response: {:#?}", make_experience_reservation_response);
+
+    let make_experience_reservation_response_json = make_experience_reservation_response.json::<serde_json::Value>().await?;
+
+    println!("make_experience_reservation_response_json: {:#?}", make_experience_reservation_response_json);
 
     Ok(())
 }
