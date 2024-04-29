@@ -2,7 +2,7 @@ use indoc::formatdoc;
 use reqwest::{Client, Response};
 use scraper::{Html, Selector};
 use serde::{Serialize, Deserialize};
-use time::{OffsetDateTime, PrimitiveDateTime};
+use std::collections::BTreeMap;
 
 // Let's work with a string restaurant ID
 // And fetch availability
@@ -58,42 +58,42 @@ pub async fn obtain_csrf_token(
 
 // TODO: Consider a more general type
 #[derive(Deserialize, Debug)]
-pub struct ExperienceAvailabilityOuterResponse {
+pub struct FetchExperienceAvailabilityResponse {
     pub data: ExperienceAvailabilityData
 }
 
 #[derive(Deserialize, Debug)]
-struct ExperienceAvailabilityData {
+pub struct ExperienceAvailabilityData {
     #[serde(rename(deserialize="experienceAvailability"))]
     pub experience_availability: ExperienceAvailabilityResponse
 }
 
 #[derive(Deserialize, Debug)]
-struct ExperienceAvailabilityResponse {
+pub struct ExperienceAvailabilityResponse {
     pub available: Vec<ExperienceAvailability>
 }
 
 #[derive(Deserialize, Debug)]
-struct ExperienceAvailability {
+pub struct ExperienceAvailability {
     #[serde(rename(deserialize="dayOffset"))]
-    pub day_offset: u32,
+    pub day_offset: i64,
     #[serde(rename(deserialize="restaurantSet"))]
     pub restaurant_set: Vec<RestaurantSet>,
 }
 
 #[derive(Deserialize, Debug)]
-struct RestaurantSet {
+pub struct RestaurantSet {
     pub available: bool,
     pub results: RestaurantSetResults
 }
 
 #[derive(Deserialize, Debug)]
-struct RestaurantSetResults {
+pub struct RestaurantSetResults {
     pub experience: Option<Vec<ExperienceSlot>>
 }
 
 #[derive(Deserialize, Debug)]
-struct ExperienceSlot {
+pub struct ExperienceSlot {
     pub attributes: Vec<String>,
     //bookableExperienceDiningAreas
     #[serde(rename(deserialize="creditCardRequired"))]
@@ -107,32 +107,31 @@ struct ExperienceSlot {
     #[serde(rename(deserialize="slotHash"))]
     pub slot_hash: u64,
     #[serde(rename(deserialize="timeOffsetMinutes"))]
-    pub time_offset_minutes: i32,
+    pub time_offset_minutes: i64,
 }
 
 #[derive(Deserialize, Debug)]
-struct BookableExperienceDiningAreas {
+pub struct BookableExperienceDiningAreas {
     #[serde(rename(deserialize="diningAreas"))]
     pub dining_areas: Vec<DiningArea>
 }
 
 #[derive(Deserialize, Debug)]
-struct DiningArea {
+pub struct DiningArea {
     pub attributes: Vec<String>,
     #[serde(rename(deserialize="diningAreaId"))]
     pub dining_area_id: u32
 }
-
 
 pub async fn fetch_experience_availability(
     client: &Client,
     restaurant_id: u32,
     experience_id: u32,
     party_size: u32,
-    date_time: &time::PrimitiveDateTime,
-    backward_minutes: u32,
-    forward_minutes: u32,
-    forward_days: u32
+    date_time: &time::OffsetDateTime,
+    backward_minutes: i64,
+    forward_minutes: i64,
+    forward_days: i64
 ) -> Result<Response, anyhow::Error>{
     let date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")?;
     let date_time_str = date_time.format(&date_time_format)?;
@@ -203,27 +202,122 @@ pub async fn fetch_experience_availability(
         .map_err(|e| e.into())
 }
 
-pub async fn lock_book_details_experience_slot(
+// Filter out out all bookable experience availablity slots.
+// Mind day and time offsets!
+pub fn available_experience_slots<'a>(
+    response: &'a FetchExperienceAvailabilityResponse
+) -> BTreeMap<i64, &'a Vec<ExperienceSlot>> {
+    // Think a vec would be fine but for consistencies sake let's go with BTreeMap
+    let mut day_offset_to_experience_slots = BTreeMap::new();
+
+    for experience_availability in &response.data.experience_availability.available {
+
+        for restaurant_set in &experience_availability.restaurant_set {
+            if restaurant_set.available {
+                if let Some(experience_slots) = &restaurant_set.results.experience {
+                    day_offset_to_experience_slots.insert(
+                        experience_availability.day_offset, 
+                        experience_slots
+                    );
+                }
+            } 
+        }
+    }
+
+    day_offset_to_experience_slots
+}
+
+
+pub struct LockFirstAvailableSlotDetails {
+    pub restaurant_id: u32,
+    pub reference_date_time: time::OffsetDateTime,
+    pub party_size: u32,
+    pub experience_id: u32,
+    pub experience_version: u32,
+}
+
+// // // TODO: Consider whether or not closely couple date time
+// // // w/ the available slots (the offsets are relative to given date time)
+// pub async fn lock_first_available_slot<'a>(
+//     client: &Client,
+//     day_offset_to_experience_slots: &BTreeMap<u32, &Vec<ExperienceSlot>>,
+//     details: &LockFirstAvailableSlotDetails
+
+// ) {
+//     for (day_offset, experience_slots) in day_offset_to_experience_slots.iter() {
+//         let day_offset_reference_date_time = details
+//             .reference_date_time
+//             .checked_add(time::Duration::days(day_offset));
+//         for experience_slot in experience_slots.iter() {
+
+
+//             let reservation_date_time = if experience_slot.time_offset_minutes >= 0 {
+//                 day_offset_reference_date_time.checked_add(
+//                     time::Durations::minutes(experience_slot.time_offset_minutes)
+//                 )
+//             } else {
+
+//             }
+
+
+//             // execute_book_details_experience_slot_lock(
+//             //     BookExperienceDetails {
+                    
+//             //     }
+//             // )
+//         }
+//     }
+// }
+
+#[derive(Deserialize, Debug)]
+pub struct ExecuteBookDetailSlotLockResponse {
+    data: ExecuteBookDetailSlotLockData 
+}
+
+#[derive(Deserialize, Debug)]
+pub struct ExecuteBookDetailSlotLockData {
+    #[serde(rename(deserialize="lockExperienceSlot"))]
+    lock_experience_slot: SlotLockResponse
+}
+
+#[derive(Deserialize, Debug)]
+pub struct SlotLockResponse {
+    #[serde(rename(deserialize="slotLock"))]
+    slot_lock: SlotLock,
+    success: bool
+}
+
+#[derive(Deserialize, Debug)]
+pub struct SlotLock {
+    #[serde(rename(deserialize="slotLockId"))]
+    slot_lock_id: u64
+}
+
+pub struct BookExperienceDetails<'a> {
+    pub restaurant_id: u32,
+    pub seating_option: &'a str,
+    pub reservation_date_time: time::OffsetDateTime,
+    pub party_size: u32,
+    pub slot_hash: &'a str,
+    pub experience_id: u32,
+    pub experience_version: u32,
+    pub dining_area_id: u32,
+}
+
+pub async fn execute_book_details_experience_slot_lock<'a>(
     client: &Client,
-    restaurant_id: u32,
-    seating_option: &str,
-    reservation_date_time: &PrimitiveDateTime,
-    party_size: u32,
-    slot_hash: u32,
-    experience_id: u32,
-    experience_version: u32,
-    dining_area_id: u32
+    book_experience_details: &BookExperienceDetails<'a>
 ) -> Result<Response, anyhow::Error> {
 
     let reservation_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")?;
-    let reservation_date_time_str = reservation_date_time.format(&reservation_date_time_format)?;
+    let reservation_date_time_str = book_experience_details.reservation_date_time.format(&reservation_date_time_format)?;
     let referer_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second]")?;
-    let referer_date_time_str = reservation_date_time.format(&referer_date_time_format)?;
+    let referer_date_time_str = book_experience_details.reservation_date_time.format(&referer_date_time_format)?;
 
     let referer_str = format!("https://www.opentable.com/booking/experiences-seating-options?rid={}&experienceId={}&modal=true&covers={}&dateTime={}", 
-        restaurant_id,
-        experience_id,
-        party_size,
+        book_experience_details.restaurant_id,
+        book_experience_details.experience_id,
+        book_experience_details.party_size,
         referer_date_time_str
     );
 
@@ -250,14 +344,14 @@ pub async fn lock_book_details_experience_slot(
                 }}
             }}
         }}"#,
-        restaurant_id = restaurant_id,
-        seating_option = seating_option,
+        restaurant_id = book_experience_details.restaurant_id,
+        seating_option = book_experience_details.seating_option,
         reservation_date_time_str = reservation_date_time_str,
-        party_size = party_size,
-        slot_hash = slot_hash,
-        experience_id = experience_id,
-        experience_version = experience_version,
-        dining_area_id = dining_area_id
+        party_size = book_experience_details.party_size,
+        slot_hash = book_experience_details.slot_hash,
+        experience_id = book_experience_details.experience_id,
+        experience_version = book_experience_details.experience_version,
+        dining_area_id = book_experience_details.dining_area_id
     );
 
     client.post(BOOK_DETAILS_EXPERIENCE_SLOT_LOCK_URL)
@@ -301,7 +395,7 @@ pub async fn lock_book_details_experience_slot(
 //     pub points: u32,
 //     pub points_type: &'a str,
 //     pub reservation_attribute: &'a str,
-//     pub reservation_date_time: &'a time::PrimitiveDateTime,
+//     pub reservation_date_time: &'a time::OffsetDateTime,
 //     pub reservation_type: &'a str,
 //     pub restaurant_id: u32,
 //     pub slot_availability_token: &'a str,

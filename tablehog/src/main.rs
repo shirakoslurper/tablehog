@@ -1,9 +1,13 @@
+use std::thread::current;
+
 use tablehog::*;
+use time::OffsetDateTime;
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
 
-    println!("{}", unix_offset_date_time_now_local()?);
+    let current_offset_date_time = unix_offset_date_time_now_local()?;
+    println!("{}", current_offset_date_time);
 
 
     let client = reqwest::Client::new();
@@ -24,8 +28,12 @@ async fn main() -> Result<(), anyhow::Error> {
     let party_size = 2;
     // let date = time::macros::date!(2024-05-06);
     // let time_ = time::macros::time!(18:30);
-    let date_time = time::macros::datetime!(2024-05-06 20:00);
-    let forward_minutes = 180;
+    let date_time = time::OffsetDateTime::new_in_offset(
+        time::macros::date!(2024-05-06),
+        time::macros::time!(18:00), 
+        current_offset_date_time.offset()
+    );
+    let forward_minutes = 240;
     let backwards_minutes= 0;
     let forward_days = 30;
 
@@ -42,11 +50,15 @@ async fn main() -> Result<(), anyhow::Error> {
 
     println!("experience_availability_response: \n{:#?}", experience_availability_response);
 
-    let experience_availability_response_json = experience_availability_response.json::<ExperienceAvailabilityOuterResponse>().await?;
+    let experience_availability_response_json = experience_availability_response.json::<FetchExperienceAvailabilityResponse>().await?;
 
     println!("experience_availability_response_json: {:#?}", experience_availability_response_json);
 
-    // let slot_lock_response = lock_book_details_experience_slot(
+    let available_experiences = available_experience_slots(&experience_availability_response_json);
+
+    println!("available_experiences: {:#?}", available_experiences);
+
+    // let slot_lock_response = book_details_experience_slot_lock(
     //     &client, 
     //     restaurant_id, 
     //     seating_option, 
