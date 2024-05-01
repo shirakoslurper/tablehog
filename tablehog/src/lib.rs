@@ -113,6 +113,8 @@ pub async fn run() -> Result<(), anyhow::Error> {
     
         let deser_fetch_experience_availability_response = fetch_experience_availability_response.json::<FetchExperienceAvailabilityResponse>().await?;
 
+        // println!("{:#?}", deser_fetch_experience_availability_response);
+
         day_offset_to_experience_slots = available_experience_slots(deser_fetch_experience_availability_response);
 
         fetch_tries_limit -= 1;
@@ -487,8 +489,6 @@ pub async fn lock_first_available_slot<'a>(
             .checked_add(time::Duration::days(*day_offset))
             .context("Adding day_offset to reference_date_time failed")?;
         for experience_slot in experience_slots.iter() {
-
-
 
             let reservation_date_time = day_offset_reference_date_time
                 .checked_add(time::Duration::minutes(experience_slot.time_offset_minutes))

@@ -303,8 +303,27 @@ EXPERIENCE AVAILABILITY
 POST
 https://www.opentable.com/dapi/fe/gql?optype=query&opname=ExperienceAvailability
 
+{"operationName":"ExperienceAvailability","variables":{"includeDiningAreas":true,"transformOutdoorToDefault":false,
+        "restaurantIds":[118267],
+        "partySize":2,
+        "dateTime":"2024-05-28T18:30",
+        "experienceId":285395,
+        "type":"Experience",
+        "returnTimeSlots":true,
+        "backwardMinutes":45,
+        "forwardMinutes":150,
+        "forwardDays":30
+    },
+    "extensions":{
+        "persistedQuery":{
+            "version":1,
+            "sha256Hash":"9a7cd200454543087f0c500e9ac7fd04a811a107c0f8e1eca7f2714cbfeaf4e0"
+        }
+    }
+}
+
 {
-    "operationName":"ExperienceAvailability",
+"operationName":"ExperienceAvailability",
     "variables":{
         "includeDiningAreas":true,
         "transformOutdoorToDefault":false,
@@ -316,12 +335,12 @@ https://www.opentable.com/dapi/fe/gql?optype=query&opname=ExperienceAvailability
         "returnTimeSlots":true,
         "backwardMinutes":45,
         "forwardMinutes":150,
-        "forwardDays":30},
-        "extensions":{
-            "persistedQuery":{
-                "version":1,
-                "sha256Hash":"9a7cd200454543087f0c500e9ac7fd04a811a107c0f8e1eca7f2714cbfeaf4e0"
-            }
+        "forwardDays":30
+    },
+    "extensions":{
+        "persistedQuery":{
+            "version":1,
+            "sha256Hash":"9a7cd200454543087f0c500e9ac7fd04a811a107c0f8e1eca7f2714cbfeaf4e0"
         }
     }
 }
