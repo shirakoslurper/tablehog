@@ -232,7 +232,8 @@ pub async fn run() -> Result<(), anyhow::Error> {
 pub async fn sleep_til(
     release_date_time_offset_free: time::OffsetDateTime
 ) -> Result<(), anyhow::Error> {
-    let current_date_time_local = unix_offset_date_time_now_local()?;
+    // let current_date_time_local = unix_offset_date_time_now_local()?;
+    let current_date_time_local = time::OffsetDateTime::now_local()?;
     let release_date_time_local = release_date_time_offset_free.replace_offset(current_date_time_local.offset());
     println!("current_date_time_local: {}", current_date_time_local);
     println!("release_date_time_local: {}", release_date_time_local);
@@ -778,7 +779,8 @@ pub async fn make_experience_reservation<'a>(
 
     // 2024-04-24T18%3A57%3A21
     // 2024-05-06T19%3A00%3A00
-    let current_date_time = unix_offset_date_time_now_local()?;
+    // let current_date_time = unix_offset_date_time_now_local()?;
+    let current_date_time = time::OffsetDateTime::now_local()?;
     let attribution_token_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]%3A[minute]%3A[second]")?;
     let attribution_token_current_date_time_str = current_date_time.format(&attribution_token_date_time_format)?;
     let attribution_token_reservation_date_time_str = make_reservation_details.reservation_date_time.format(&attribution_token_date_time_format)?;
