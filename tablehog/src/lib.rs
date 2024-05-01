@@ -895,19 +895,19 @@ pub async fn make_experience_reservation<'a>(
 }
 
 
-pub fn unix_offset_date_time_now_local() -> Result<time::OffsetDateTime, anyhow::Error> {
-    let mut timezone: libc::tm = unsafe { std::mem::zeroed() };
-    let mut timestamp: libc::time_t = 0;
-    unsafe {
-        libc::time(&mut timestamp);
-        libc::localtime_r(&timestamp, &mut timezone);
-    }
+// pub fn unix_offset_date_time_now_local() -> Result<time::OffsetDateTime, anyhow::Error> {
+//     let mut timezone: libc::tm = unsafe { std::mem::zeroed() };
+//     let mut timestamp: libc::time_t = 0;
+//     unsafe {
+//         libc::time(&mut timestamp);
+//         libc::localtime_r(&timestamp, &mut timezone);
+//     }
 
-    let utc_offset_seconds = i32::try_from(timezone.tm_gmtoff)?;
-    let utc_offset = time::UtcOffset::from_whole_seconds(utc_offset_seconds)?;
+//     let utc_offset_seconds = i32::try_from(timezone.tm_gmtoff)?;
+//     let utc_offset = time::UtcOffset::from_whole_seconds(utc_offset_seconds)?;
 
-    let current_date_time_utc = time::OffsetDateTime::from_unix_timestamp(timestamp)?;
-    let current_date_time_offset = current_date_time_utc.to_offset(utc_offset);
+//     let current_date_time_utc = time::OffsetDateTime::from_unix_timestamp(timestamp)?;
+//     let current_date_time_offset = current_date_time_utc.to_offset(utc_offset);
 
-    Ok(current_date_time_offset)
-}
+//     Ok(current_date_time_offset)
+// }
