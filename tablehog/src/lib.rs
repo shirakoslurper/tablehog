@@ -102,9 +102,10 @@ pub async fn run() -> Result<(), anyhow::Error> {
     };
 
     let mut day_offset_to_experience_slots = BTreeMap::new();
-    let mut fetch_tries_limit = 20;
+    let mut fetch_tries_limit = 200;
 
-    while day_offset_to_experience_slots.is_empty() || fetch_tries_limit > 0 {
+    // If one of these is false we want to fail!!!
+    while day_offset_to_experience_slots.is_empty() && fetch_tries_limit > 0 {
         let fetch_experience_availability_response = fetch_experience_availability(
             &client, 
             &fetch_experience_availability_details
