@@ -1,13 +1,14 @@
 use anyhow::Context;
+use clap::Parser;
 use indoc::formatdoc;
+use ratatui::layout::Offset;
 use reqwest::{Client, Response};
 use scraper::{Html, Selector};
-use serde::{Serialize, Deserialize};
+use serde::Deserialize;
+use tokio::runtime;
+use std::ops::Sub;
 use time::OffsetDateTime;
 use std::collections::BTreeMap;
-
-// Let's work with a string restaurant ID
-// And fetch availability
 
 pub const OPENTABLE_URL: &str = "https://www.opentable.com/";
 pub const RESTAURANT_AVAILABILITY_URL: &str = "https://www.opentable.com/dapi/fe/gql?optype=query&opname=RestaurantsAvailability";
@@ -17,6 +18,227 @@ pub const MAKE_RESERVATION_URL: &str = "https://www.opentable.com/dapi/booking/m
 
 pub const SPREEDLY_PAYMENT_METHODS_URL: &str = "https://core.spreedly.com/v1/payment_methods/restricted.json?from=iframe&v=1.124";
 pub const SPREEDLY_ENVIRONMENT_KEY: &str = "BZiZWqR6ai03EW7Ep7sMIwaB4TI";
+
+#[derive(Parser)]
+pub struct Args {
+    #[arg(short, long)]
+    details_path: std::path::PathBuf,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RunDetails {
+    release_date_time: String,
+    experience_details: RunExperienceDetails,
+    user_details: RunUserDetails,
+    // Require a card for now!
+    card_details: RunCardDetails,
+    fbp: String
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RunExperienceDetails {
+    restaurant_id: u32,
+    experience_id: u32,
+    experience_version: u32,
+    reference_date_time: String,
+    forward_days: i64,
+    forward_minutes: i64,
+    backward_minutes: i64,
+    party_size: u32
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RunUserDetails {
+    first_name: String,
+    last_name: String,
+    email: String,
+    phone_number: String
+}
+
+#[derive(Deserialize, Debug)]
+pub struct RunCardDetails {
+    number: String,
+    cvv: String,
+    expiration_date: String,
+    zip_code: String
+}
+
+pub async fn run() -> Result<(), anyhow::Error> {
+    let args = Args::parse();
+    let json_run_details_str = std::fs::read_to_string(&args.details_path)?;
+    let run_details = serde_json::from_str::<RunDetails>(&json_run_details_str)?;
+
+    println!("run_details: {:#?}", run_details);
+    
+    let run_experience_details = &run_details.experience_details;
+    let run_user_details = &run_details.user_details;
+    let run_card_details =&run_details.card_details;
+
+    // TODO: Something cleaner and less confusing
+    // BUT this works for now!
+    let release_date_time_offset_free = time::OffsetDateTime::parse(
+        &run_details.release_date_time,
+        &time::format_description::well_known::Iso8601::DEFAULT
+    )?;
+    
+    sleep_til(release_date_time_offset_free).await?;
+
+    // 1. Obtain experience availability. Try until non-empty or exhausted number of attempts.
+    let client = reqwest::Client::new();
+
+    let reference_date_time = time::OffsetDateTime::parse(
+        &run_details.experience_details.reference_date_time,
+        &time::format_description::well_known::Iso8601::DEFAULT
+    )?;
+
+    let fetch_experience_availability_details = FetchExperienceAvailabilityDetails {
+        restaurant_id: run_experience_details.restaurant_id, 
+        experience_id: run_experience_details.experience_id, 
+        party_size: run_experience_details.party_size, 
+        reference_date_time: reference_date_time.clone(), 
+        backward_minutes: run_experience_details.backward_minutes, 
+        forward_minutes: run_experience_details.forward_minutes, 
+        forward_days: run_experience_details.forward_days,
+    };
+
+    let mut day_offset_to_experience_slots = BTreeMap::new();
+    let mut fetch_tries_limit = 20;
+
+    while day_offset_to_experience_slots.is_empty() || fetch_tries_limit > 0 {
+        let fetch_experience_availability_response = fetch_experience_availability(
+            &client, 
+            &fetch_experience_availability_details
+        ).await?;
+    
+        let deser_fetch_experience_availability_response = fetch_experience_availability_response.json::<FetchExperienceAvailabilityResponse>().await?;
+
+        day_offset_to_experience_slots = available_experience_slots(deser_fetch_experience_availability_response);
+
+        fetch_tries_limit -= 1;
+    }
+
+    if day_offset_to_experience_slots.is_empty() {
+        return Err(anyhow::anyhow!("Could not obtain available_experience slots!"))
+    }
+
+    // println!("day_offset_to_experience_slots: {:#?}", day_offset_to_experience_slots);
+
+    // 2. Lock the first available slot!
+    let locked_slot = lock_first_available_slot(
+        &client, 
+        &day_offset_to_experience_slots, 
+        &LockFirstAvailableSlotDetails {
+            restaurant_id: run_experience_details.restaurant_id,
+            reference_date_time,
+            party_size: run_experience_details.party_size,
+            experience_id: run_experience_details.experience_id,
+            experience_version: run_experience_details.experience_version
+        }
+    )
+    .await?
+    .context("Failed to lock a slot")?;
+
+    println!("locked_slot: {:#?}", locked_slot);
+
+    // 3. Add card to Spreedly
+    // TODO: Add support for non card requiring experiences
+    // But for not throw an error on not having card_details
+
+    let date_format = time::macros::format_description!("[year]-[month]-[day]");
+    let expiration_date = time::Date::parse(&run_card_details.expiration_date, &date_format)?;
+
+    let card_details = SpreedlyAddPaymentMethodDetails {
+        number: &run_card_details.number,
+        cvv: &run_card_details.cvv,
+        first_name: &run_user_details.first_name,
+        last_name: &run_user_details.last_name,
+        month: expiration_date.month() as u32,
+        year: expiration_date.year() as u32,
+        zip_code: &run_card_details.zip_code
+    };
+
+    let spreedly_add_payment_method_response = spreedly_add_payment_method(
+        &client, 
+        &card_details
+    ).await?;
+
+    println!("spreedly_add_payment_method_response: {:#?}", spreedly_add_payment_method_response);
+
+    let deser_spreedly_add_payment_method_response = spreedly_add_payment_method_response.json::<SpreedlyAddPaymentMethodResponse>().await?;
+
+    println!("deser_spreedly_add_payment_method_response: {:#?}", deser_spreedly_add_payment_method_response);
+
+    // TODO: CHECK FOR CARD ADDED SUCCESS IN REAL FLOWS
+    if !deser_spreedly_add_payment_method_response.transaction.succeeded {
+        return Err(anyhow::anyhow!("Failed to add payment method!"));
+    }
+
+    // 4. Make the reservation!
+    let split_pos = run_card_details.number
+        .char_indices()
+        .nth_back(3)
+        .context("CC number does not have enough digits!")?
+        .0;
+    let credit_card_last_four = &run_card_details.number[split_pos..];
+
+    println!("Credit Card last four: {}", credit_card_last_four);
+
+    let mmyy_format = time::macros::format_description!("[month][year repr:last_two]");
+    let credit_card_mmyy = expiration_date.format(&mmyy_format)?;
+
+    println!("Credit Card mmyy: {}", credit_card_mmyy);
+
+    let make_experience_reservation_details = MakeExperienceReservationDetails{
+        credit_card_last_four,
+        credit_card_mmyy: &credit_card_mmyy,
+        credit_card_token: &deser_spreedly_add_payment_method_response.transaction.payment_method.token,
+        dining_area_id: 1,
+        email: &run_user_details.email,
+        experience_id: run_experience_details.experience_id,
+        experience_version: run_experience_details.experience_version,
+        fbp: &run_details.fbp,
+        first_name: &run_user_details.first_name,
+        last_name: &run_user_details.last_name,
+        party_size: run_experience_details.party_size,
+        points: locked_slot.experience_slot.points_value,
+        points_type: &locked_slot.experience_slot.points_type,
+        reservation_attribute: &locked_slot.chosen_attribute,
+        reservation_date_time: &locked_slot.date_time,
+        restaurant_id: run_experience_details.restaurant_id,
+        slot_availability_token: &locked_slot.experience_slot.slot_availability_token,
+        slot_hash: locked_slot.experience_slot.slot_hash,
+        slot_lock_id: locked_slot.slot_lock_id,
+        phone_number: &run_user_details.phone_number
+    };
+
+    let make_experience_reservation_response = make_experience_reservation(
+        &client,
+        &make_experience_reservation_details
+    )
+    .await?;
+
+    println!("make_experience_reservation_response: {:#?}", make_experience_reservation_response);
+
+    let make_experience_reservation_response_json = make_experience_reservation_response.json::<serde_json::Value>().await?;
+
+    println!("make_experience_reservation_response_json: {:#?}", make_experience_reservation_response_json);
+
+    Ok(())
+}
+
+pub async fn sleep_til(
+    release_date_time_offset_free: time::OffsetDateTime
+) -> Result<(), anyhow::Error> {
+    let current_date_time_local = unix_offset_date_time_now_local()?;
+    let release_date_time_local = release_date_time_offset_free.replace_offset(current_date_time_local.offset());
+    println!("current_date_time_local: {}", current_date_time_local);
+    println!("release_date_time_local: {}", release_date_time_local);
+
+    let sleep_duration = release_date_time_local.sub(current_date_time_local);
+    tokio::time::sleep(sleep_duration.unsigned_abs()).await;
+
+    Ok(())
+}
 
 pub async fn obtain_csrf_token(
     client: &Client
@@ -126,26 +348,31 @@ pub struct DiningArea {
     pub dining_area_id: u32
 }
 
+#[derive(Debug)]
+pub struct FetchExperienceAvailabilityDetails {
+    pub restaurant_id: u32,
+    pub experience_id: u32,
+    pub party_size: u32,
+    pub reference_date_time: time::OffsetDateTime,
+    pub backward_minutes: i64,
+    pub forward_minutes: i64,
+    pub forward_days: i64
+}
+
 pub async fn fetch_experience_availability(
     client: &Client,
-    restaurant_id: u32,
-    experience_id: u32,
-    party_size: u32,
-    date_time: &time::OffsetDateTime,
-    backward_minutes: i64,
-    forward_minutes: i64,
-    forward_days: i64
+    details: &FetchExperienceAvailabilityDetails
 ) -> Result<Response, anyhow::Error>{
     let date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")?;
-    let date_time_str = date_time.format(&date_time_format)?;
+    let reference_date_time_str = details.reference_date_time.format(&date_time_format)?;
     let referer_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]:[second]")?;
-    let referer_date_time_str = date_time.format(&referer_date_time_format)?;
+    let referer_reference_date_time_str = details.reference_date_time.format(&referer_date_time_format)?;
 
     let referer_str = format!("https://www.opentable.com/booking/experiences-availability?rid={}&experienceId={}&modal=true&covers={}&dateTime={}", 
-        restaurant_id,
-        experience_id,
-        party_size,
-        referer_date_time_str
+        details.restaurant_id,
+        details.experience_id,
+        details.party_size,
+        referer_reference_date_time_str
     );
 
     let body = formatdoc!(
@@ -171,13 +398,13 @@ pub async fn fetch_experience_availability(
                 }}
             }}
         }}"#,
-        restaurant_id = restaurant_id,
-        party_size = party_size,
-        date_time_str = date_time_str,
-        experience_id = experience_id,
-        backward_minutes = backward_minutes,
-        forward_minutes = forward_minutes,
-        forward_days = forward_days
+        restaurant_id = details.restaurant_id,
+        party_size = details.party_size,
+        date_time_str = reference_date_time_str,
+        experience_id = details.experience_id,
+        backward_minutes = details.backward_minutes,
+        forward_minutes = details.forward_minutes,
+        forward_days = details.forward_days
     );
     
     client.post(EXPERIENCE_AVAILABILITY_URL)
@@ -208,16 +435,16 @@ pub async fn fetch_experience_availability(
 // Filter out out all bookable experience availablity slots.
 // Mind day and time offsets!
 pub fn available_experience_slots<'a>(
-    response: &'a FetchExperienceAvailabilityResponse
-) -> BTreeMap<i64, &'a Vec<ExperienceSlot>> {
+    response: FetchExperienceAvailabilityResponse
+) -> BTreeMap<i64, Vec<ExperienceSlot>> {
     // Think a vec would be fine but for consistencies sake let's go with BTreeMap
     let mut day_offset_to_experience_slots = BTreeMap::new();
 
-    for experience_availability in &response.data.experience_availability.available {
+    for experience_availability in response.data.experience_availability.available {
 
-        for restaurant_set in &experience_availability.restaurant_set {
+        for restaurant_set in experience_availability.restaurant_set {
             if restaurant_set.available {
-                if let Some(experience_slots) = &restaurant_set.results.experience {
+                if let Some(experience_slots) = restaurant_set.results.experience {
                     day_offset_to_experience_slots.insert(
                         experience_availability.day_offset, 
                         experience_slots
@@ -229,7 +456,6 @@ pub fn available_experience_slots<'a>(
 
     day_offset_to_experience_slots
 }
-
 
 pub struct LockFirstAvailableSlotDetails {
     pub restaurant_id: u32,
@@ -251,7 +477,7 @@ pub struct LockedSlot {
 // w/ the available slots (the offsets are relative to given date time)
 pub async fn lock_first_available_slot<'a>(
     client: &Client,
-    day_offset_to_experience_slots: &BTreeMap<i64, &Vec<ExperienceSlot>>,
+    day_offset_to_experience_slots: &BTreeMap<i64, Vec<ExperienceSlot>>,
     details: &LockFirstAvailableSlotDetails
 ) -> Result<Option<LockedSlot>, anyhow::Error> {
     for (day_offset, experience_slots) in day_offset_to_experience_slots.iter() {
@@ -260,6 +486,9 @@ pub async fn lock_first_available_slot<'a>(
             .checked_add(time::Duration::days(*day_offset))
             .context("Adding day_offset to reference_date_time failed")?;
         for experience_slot in experience_slots.iter() {
+
+
+
             let reservation_date_time = day_offset_reference_date_time
                 .checked_add(time::Duration::minutes(experience_slot.time_offset_minutes))
                 .context("Adding time_offset_minutes to day_offset_reference_date_time failed")?;
@@ -282,7 +511,7 @@ pub async fn lock_first_available_slot<'a>(
 
             let book_experience_details = BookExperienceDetails {
                 restaurant_id: details.restaurant_id,
-                seating_option: &seating_option,
+                seating_option: seating_option.clone(),
                 reservation_date_time,
                 party_size: details.party_size,
                 slot_hash: experience_slot.slot_hash,
@@ -347,9 +576,9 @@ pub struct SlotLock {
 }
 
 #[derive(Debug)]
-pub struct BookExperienceDetails<'a> {
+pub struct BookExperienceDetails {
     pub restaurant_id: u32,
-    pub seating_option: &'a str,
+    pub seating_option: String,
     pub reservation_date_time: time::OffsetDateTime,
     pub party_size: u32,
     pub slot_hash: u64,
@@ -358,9 +587,9 @@ pub struct BookExperienceDetails<'a> {
     pub dining_area_id: u32,
 }
 
-pub async fn execute_book_details_experience_slot_lock<'a>(
+pub async fn execute_book_details_experience_slot_lock(
     client: &Client,
-    book_experience_details: &BookExperienceDetails<'a>
+    book_experience_details: &BookExperienceDetails
 ) -> Result<Response, anyhow::Error> {
 
     let reservation_date_time_format = time::format_description::parse("[year]-[month]-[day]T[hour]:[minute]")?;
@@ -433,7 +662,7 @@ pub async fn execute_book_details_experience_slot_lock<'a>(
         .map_err(|e| e.into())
 }
 
-pub struct CardDetails<'a> {
+pub struct SpreedlyAddPaymentMethodDetails<'a> {
     pub number: &'a str,
     pub cvv: &'a str,
     pub first_name: &'a str,
@@ -462,7 +691,7 @@ pub struct SpreedlyPaymentMethod {
 // Assumes NA
 pub async fn spreedly_add_payment_method<'a>(
     client: &Client,
-    card_details: &CardDetails<'a>
+    card_details: &SpreedlyAddPaymentMethodDetails<'a>
 ) -> Result<Response, anyhow::Error> {
     let body = formatdoc!(
         r#"{{

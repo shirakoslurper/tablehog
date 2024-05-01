@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
+clap.workspace = true
 crossterm.workspace = true
 indoc.workspace = true
 libc.workspace = true

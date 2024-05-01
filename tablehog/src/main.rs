@@ -2,11 +2,12 @@ use anyhow::Context;
 use std::ops::Sub;
 use tablehog::*;
 use time::OffsetDateTime;
+use clap::Parser;
 
 #[tokio::main]
-async fn main() -> Result<(), anyhow::Error> {
+async fn main() -> Result<(), anyhow::Error> {    
 
-    
+    run().await?;
 
     // let cc_dt_format = time::format_description::parse("[day]/[month]/[year]")?;
     // let dt = time::Date::parse("01/05/2024", &cc_dt_format)?;
@@ -61,7 +62,7 @@ async fn main() -> Result<(), anyhow::Error> {
     //     current_offset_date_time.offset()
     // );
     // let forward_minutes = 240;
-    // let backwards_minutes= 0;
+    // let backward_minutes= 0;
     // let forward_days = 30;
 
     // // DIFFICULT TO FETCH DETAILS
@@ -73,8 +74,8 @@ async fn main() -> Result<(), anyhow::Error> {
     //     experience_id, 
     //     party_size, 
     //     &reference_date_time, 
+    //     backward_minutes, 
     //     forward_minutes, 
-    //     backwards_minutes, 
     //     forward_days,
     // ).await?;
 
