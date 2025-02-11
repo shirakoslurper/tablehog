@@ -1,4 +1,4 @@
-# tablehop
+# tablehog
 
 This is a hacked together OpenTable reservation bot.
 I was familiar with the concept of sneaker/ticket/reservation bots and the like, but didn't know much about how they worked, exactly.
